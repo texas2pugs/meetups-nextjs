@@ -1,34 +1,42 @@
-import { Fragment } from 'react';
+import { MongoClient, ObjectId } from 'mongodb';
 
 import MeetupDetail from '../../components/meetups/MeetupDetail';
 
-function MeetupDetails() {
+function MeetupDetails(props) {
   return (
     <MeetupDetail
-      image="https://media-cdn.tripadvisor.com/media/photo-s/08/df/98/7d/blick-auf-das-starbucks.jpg"
-      title="First meetup"
+      image={props.meetupData.image}
+      title={props.meetupData.title}
       date="May 25, 2021"
-      address="1 Eins Strase Berlin, Germany"
-      description="Let's meet in the beautiful city of Berlin"
+      address={props.meetupData.address}
+      description={props.meetupData.description}
     />
   );
 }
 
 export async function getStaticPaths() {
+  const mongodb_user = 'testadmin';
+  const mongodb_pass = '4xl4Wzawo36sRxKn';
+  const mongodb_cluster = 'cluster0.j3l7i.mongodb.net';
+  const mongodb_database = 'next-meetups';
+
+  const connectionString = `mongodb+srv://${mongodb_user}:${mongodb_pass}@${mongodb_cluster}/${mongodb_database}?retryWrites=true&w=majority`;
+
+  const client = await MongoClient.connect(connectionString);
+  const db = client.db();
+
+  const meetupsCollection = db.collection('meetups');
+
+  // fetch all documents, but only the _id
+  const meetups = await meetupsCollection.find({}, { _id: 1 }).toArray();
+
+  client.close();
+
   return {
     fallback: false,
-    paths: [
-      {
-        params: {
-          meetupId: 'm1',
-        },
-      },
-      {
-        params: {
-          meetupId: 'm2',
-        },
-      },
-    ],
+    paths: meetups.map((meetup) => ({
+      params: { meetupId: meetup._id.toString() },
+    })),
   };
 }
 
@@ -37,15 +45,33 @@ export async function getStaticProps(context) {
 
   const meetupId = context.params.meetupId;
 
+  const mongodb_user = 'testadmin';
+  const mongodb_pass = '4xl4Wzawo36sRxKn';
+  const mongodb_cluster = 'cluster0.j3l7i.mongodb.net';
+  const mongodb_database = 'next-meetups';
+
+  const connectionString = `mongodb+srv://${mongodb_user}:${mongodb_pass}@${mongodb_cluster}/${mongodb_database}?retryWrites=true&w=majority`;
+
+  const client = await MongoClient.connect(connectionString);
+  const db = client.db();
+
+  const meetupsCollection = db.collection('meetups');
+
+  // fetch all documents, but only the _id
+  const selectedMeetup = await meetupsCollection.findOne({
+    _id: ObjectId(meetupId),
+  });
+
+  client.close();
+
   return {
     props: {
       meetupData: {
-        image:
-          'https://media-cdn.tripadvisor.com/media/photo-s/08/df/98/7d/blick-auf-das-starbucks.jpg',
-        id: meetupId,
-        title: 'First meetup',
-        address: '1 Zwei Strase Berlin, Germany',
-        description: 'Our first meetup in the beautiful city of Berlin!',
+        id: selectedMeetup._id.toString(),
+        title: selectedMeetup.title,
+        address: selectedMeetup.address,
+        image: selectedMeetup.image,
+        description: selectedMeetup.description,
       },
     },
   };
